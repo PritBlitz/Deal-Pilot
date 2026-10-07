@@ -17,11 +17,19 @@ from typing import Any
 Record = dict[str, Any]
 
 
+class StorageError(Exception):
+    """The quotes file can't be read or written. The message says which file and why."""
+
+
 class QuoteStore:
     def __init__(self, path: Path):
         self._path = path
         self._lock = threading.Lock()
         self._path.parent.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def path(self) -> Path:
+        return self._path
 
     def list(self) -> list[Record]:
         with self._lock:
@@ -58,10 +66,21 @@ class QuoteStore:
     def _read(self) -> dict[str, Record]:
         if not self._path.exists():
             return {}
-        data = json.loads(self._path.read_text(encoding="utf-8") or "{}")
-        return {record["id"]: record for record in data.get("quotes", [])}
+        if self._path.is_dir():
+            raise StorageError(
+                f"Quote storage path {self._path} is a directory. "
+                "Point DEAL_DESK_QUOTES_PATH at a file, e.g. /var/data/quotes.json."
+            )
+        try:
+            data = json.loads(self._path.read_text(encoding="utf-8") or "{}")
+            return {record["id"]: record for record in data.get("quotes", [])}
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            raise StorageError(f"Can't read quote storage at {self._path}: {type(exc).__name__}: {exc}") from exc
 
     def _write(self, quotes: dict[str, Record]) -> None:
         tmp = self._path.with_suffix(self._path.suffix + ".tmp")
-        tmp.write_text(json.dumps({"quotes": list(quotes.values())}, indent=2), encoding="utf-8")
-        os.replace(tmp, self._path)
+        try:
+            tmp.write_text(json.dumps({"quotes": list(quotes.values())}, indent=2), encoding="utf-8")
+            os.replace(tmp, self._path)
+        except OSError as exc:
+            raise StorageError(f"Can't write quote storage at {self._path}: {type(exc).__name__}: {exc}") from exc

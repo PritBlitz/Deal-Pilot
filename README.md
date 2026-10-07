@@ -62,6 +62,8 @@ Backend and frontend deploy separately. Each needs the other's URL.
 | Start | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` | auto |
 | Env | `DEAL_DESK_CORS_ORIGINS=https://<frontend-url>` (exact, no trailing slash)<br>`DEAL_DESK_ADMIN_PASSCODE=<your passcode>`<br>`PYTHON_VERSION=3.12.8` (Render) | `API_URL=https://<backend-url>` (read at **build** time, so redeploy after changing it) |
 
+After deploying, open `https://<backend-url>/api/health`. It reports whether the catalog loaded and quote storage is readable, or returns `503 storage_unavailable` with the file path and the reason.
+
 On hosts without a persistent disk, saved quotes reset when the service restarts. Mount a disk and set `DEAL_DESK_QUOTES_PATH` to a file on it to keep them.
 
 ## Tests

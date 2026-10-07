@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 from datetime import UTC, datetime
@@ -33,8 +34,10 @@ from .models import (
     StatusEventOut,
     TransitionOut,
 )
-from .store import QuoteStore, Record
+from .store import QuoteStore, Record, StorageError
 from .workflow import Role, allowed_next, can_act, required_role
+
+log = logging.getLogger("deal_desk")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CATALOG_PATH = REPO_ROOT / "data" / "catalog.json"
@@ -120,11 +123,36 @@ def create_app(
         issues = [IssueOut(loc=list(i.loc), code=i.code, message=i.message) for i in exc.issues]
         return _error_response(exc.status_code, exc.code, exc.message, issues)
 
+    @app.exception_handler(StorageError)
+    async def handle_storage_error(_: Request, exc: StorageError) -> JSONResponse:
+        log.error("Quote storage failure: %s", exc)
+        return _error_response(503, "storage_unavailable", str(exc), [])
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
+        # Full traceback goes to the server log; the client gets the same JSON envelope as every other error.
+        log.exception("Unhandled error on %s %s", request.method, request.url.path)
+        return _error_response(
+            500, "internal_error", f"Unexpected server error ({type(exc).__name__}). Details are in the server log.", []
+        )
+
     @app.exception_handler(RequestValidationError)
     async def handle_schema_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         issues = [_schema_issue(error) for error in exc.errors()]
         noun = "problem" if len(issues) == 1 else "problems"
         return _error_response(422, "validation_failed", f"The request has {len(issues)} {noun} to fix.", issues)
+
+    # -- health ---------------------------------------------------------------
+
+    @app.get("/api/health", responses={503: {"model": ErrorOut}})
+    def health() -> dict[str, Any]:
+        """Checks the catalog loaded and quote storage is readable. Useful right after a deploy."""
+        return {
+            "status": "ok",
+            "catalog_products": len(catalog.products),
+            "quotes_path": str(store.path),
+            "saved_quotes": len(store.list()),  # raises StorageError → 503 with the reason
+        }
 
     # -- catalog --------------------------------------------------------------
 

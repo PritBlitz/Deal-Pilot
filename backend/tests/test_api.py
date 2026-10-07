@@ -183,3 +183,18 @@ def test_saved_quote_keeps_its_prices_when_catalog_changes(tmp_path: Path):
         ("price_changed", "AGENT-CORE"),
         ("product_removed", "AGENT-ANALYTICS"),
     }
+
+
+def test_unreadable_storage_is_a_clear_503_not_a_bare_500(tmp_path: Path):
+    quotes = tmp_path / "quotes.json"
+    quotes.write_text("not json")
+    client = TestClient(create_app(CATALOG_PATH, quotes), raise_server_exceptions=False)
+
+    for path in ("/api/quotes", "/api/health"):
+        res = client.get(path)
+        assert res.status_code == 503
+        error = res.json()["error"]
+        assert error["code"] == "storage_unavailable" and str(quotes) in error["message"]
+
+    # A path that points at a directory is the classic hosting misconfiguration.
+    assert "is a directory" in TestClient(create_app(CATALOG_PATH, tmp_path)).get("/api/quotes").json()["error"]["message"]
