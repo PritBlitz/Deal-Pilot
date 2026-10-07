@@ -9,7 +9,8 @@ import type {
   QuoteSummary,
 } from "./types";
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+// Set at build time from API_URL (or NEXT_PUBLIC_API_URL): see next.config.ts.
+export const API_URL = (process.env.API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 /**
  * Every failed request becomes an `ApiError`:

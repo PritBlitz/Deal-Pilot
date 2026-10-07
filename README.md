@@ -51,6 +51,19 @@ passcode: open **Approvals** and sign in with **`approver`** (set `DEAL_DESK_ADM
 
 No configuration is needed for the default ports. If you change a port, see [.env.example](.env.example). For example, if the frontend runs on `:3001`, start the backend with `DEAL_DESK_CORS_ORIGINS=http://localhost:3001`.
 
+## Deploying (optional)
+
+Backend and frontend deploy separately. Each needs the other's URL.
+
+| | Backend (e.g. Render web service) | Frontend (e.g. Vercel) |
+| --- | --- | --- |
+| Root directory | `backend` | `frontend` |
+| Build | `pip install -r requirements.txt` | auto (Next.js) |
+| Start | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` | auto |
+| Env | `DEAL_DESK_CORS_ORIGINS=https://<frontend-url>` (exact, no trailing slash)<br>`DEAL_DESK_ADMIN_PASSCODE=<your passcode>`<br>`PYTHON_VERSION=3.12.8` (Render) | `API_URL=https://<backend-url>` (read at **build** time, so redeploy after changing it) |
+
+On hosts without a persistent disk, saved quotes reset when the service restarts. Mount a disk and set `DEAL_DESK_QUOTES_PATH` to a file on it to keep them.
+
 ## Tests
 
 ```bash
