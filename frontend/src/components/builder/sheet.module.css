@@ -1,0 +1,309 @@
+/* The quote sheet: a printed document on top of the paper background. */
+
+.sheet {
+  position: relative;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--ink);
+  border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: var(--shadow-sheet);
+}
+
+.pad {
+  padding: 0 24px 18px;
+}
+
+.head {
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.headRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.customer {
+  margin-top: 12px;
+  font-size: 38px;
+  overflow-wrap: anywhere;
+}
+
+.customer[data-empty="true"] {
+  color: var(--ink-3);
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.tierTag {
+  padding: 1px 7px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+/* Live indicator */
+
+.live {
+  --c: var(--green);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-2);
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+.live[data-status="pending"] {
+  --c: var(--ink-3);
+}
+
+.live[data-status="pending"] .liveDot {
+  animation: blink 900ms ease-in-out infinite;
+}
+
+.live[data-status="invalid"] {
+  --c: var(--amber);
+}
+
+.live[data-status="error"] {
+  --c: var(--red);
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* States */
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 24px;
+  color: var(--ink-2);
+}
+
+.pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  animation: blink 900ms ease-in-out infinite;
+}
+
+.todo {
+  padding: 18px 24px 22px;
+}
+
+.todoTitle {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.todoList {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: todo;
+}
+
+.todoList li {
+  counter-increment: todo;
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.todoList li::before {
+  content: counter(todo, decimal-leading-zero);
+  flex: none;
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.todoList button {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+
+.todoList button:hover {
+  text-decoration-color: var(--ink);
+}
+
+/* Numbers */
+
+.body {
+  transition: opacity 160ms var(--ease);
+}
+
+.body[data-stale="true"] {
+  opacity: 0.5;
+}
+
+.lines {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.lines thead th {
+  padding: 12px 24px 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--ink-3);
+}
+
+.lines tbody th,
+.lines tbody td {
+  padding: 9px 24px;
+  border-top: 1px dotted var(--rule);
+  vertical-align: top;
+}
+
+.lines tbody th {
+  font-weight: 500;
+  text-align: left;
+}
+
+.lines th + td,
+.lines thead th + th {
+  padding-left: 0;
+}
+
+.lines td + td,
+.lines thead th + th + th {
+  padding-left: 12px;
+}
+
+.sku {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.right {
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.qty {
+  color: var(--ink-2);
+}
+
+.totals {
+  margin: 0;
+  padding: 10px 24px 18px;
+  border-top: 1px solid var(--ink);
+}
+
+.totals > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.totals dt {
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.totals dd {
+  margin: 0;
+  font-size: 14px;
+}
+
+.totals .grand {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.totals .grand dt {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.totals .grand dd {
+  font-size: clamp(38px, 4.2vw, 52px);
+  letter-spacing: -0.02em;
+}
+
+/* Explanation */
+
+.explain {
+  padding: 0 24px 18px;
+}
+
+.explainToggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--ink-3);
+}
+
+.explanation {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  list-style: none;
+  border-left: 2px solid var(--ink);
+  background: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.foot {
+  padding: 18px 24px 20px;
+  border-top: 1px dashed var(--rule);
+}
