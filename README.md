@@ -1,276 +1,243 @@
-# Take-home C: Deal Desk Quote Simulator
+# Deal Desk Quote Simulator
 
-## What this is
+An internal tool for sales reps to build a customer quote, see it priced live, understand whether it needs approval and why, save it, and move it through review.
 
-A sales team needs a small internal tool to prepare customer quotes before sending them for approval.
+- **Backend:** Python 3.12+ · FastAPI · Pydantic. All business rules live here.
+- **Frontend:** Next.js 16 (App Router) · React 19 · TypeScript. CSS Modules, no UI kit.
+- **Storage:** quotes are saved to a JSON file (`backend/var/quotes.json`). No database.
 
-Today, reps calculate quantities, discounts, and approval requirements manually. Build a **Deal Desk Quote Simulator** that lets a rep create a quote, see the calculation, understand whether approval is required, and save/load the quote.
+The original brief is in [docs/ASSIGNMENT.md](docs/ASSIGNMENT.md). Design and business decisions are in [DECISIONS.md](DECISIONS.md).
 
-This is intentionally **not** an analytics/explorer exercise. The core of the task is business logic, typed state, form design, API boundaries, validation, and making a calculation trustworthy.
+---
 
-You are given `data/catalog.json`.
+## Run it (about 5 minutes)
 
-## Timebox
+Prerequisites: **Python 3.12+** and **Node 20.9+**.
 
-Budget around **6–8 hours of focused work**, spread over up to 4 days.
+**1. Backend** (terminal 1)
 
-Finish the MUST BUILD section well before spending time on polish.
+```bash
+cd backend
+python -m venv .venv
 
-## Stack
+# Activate the virtual environment (run the script directly, not with `python`):
+#   macOS/Linux:          source .venv/bin/activate
+#   Windows PowerShell:   .venv\Scripts\Activate.ps1
+#   Windows cmd:          .venv\Scripts\activate.bat
+#   Windows Git Bash:     source .venv/Scripts/activate
+# Your prompt should now start with (.venv).
 
-### Frontend
-- Next.js App Router
-- React
-- TypeScript
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
 
-### Backend
-- Python
-- FastAPI preferred; Flask/Django REST acceptable
+> **PowerShell says "running scripts is disabled"?** Run
+> `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` (this terminal only), then activate again.
 
-### Data
-- JSON file supplied with the assessment
-- No database required
-- Persist created quotes to a simple JSON file on the backend, or keep them in memory if you clearly document the limitation
+The API is now at http://localhost:8000. Interactive docs are at http://localhost:8000/docs.
 
-The browser must communicate with the Python backend over HTTP. Do not hide the backend inside Next.js API routes.
+**2. Frontend** (terminal 2)
 
-## Business rules
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-A quote contains:
-- customer name
-- number of seats
-- one or more product line items
-- discount percentage
-- optional annual commitment
+Open **http://localhost:3000**.
 
-For each line:
-`line_total = quantity × unit_price`
+**Two roles.** Anyone can build, save and submit quotes (the *rep*). Approving or rejecting needs the approver
+passcode: open **Approvals** and sign in with **`approver`** (set `DEAL_DESK_ADMIN_PASSCODE` to change it).
 
-Before discount:
-`subtotal = sum(line_total)`
+No configuration is needed for the default ports. If you change a port, see [.env.example](.env.example). For example, if the frontend runs on `:3001`, start the backend with `DEAL_DESK_CORS_ORIGINS=http://localhost:3001`.
 
-After discount:
-`discount_amount = subtotal × discount_pct / 100`
+## Tests
 
-`total = subtotal - discount_amount`
+```bash
+# backend: business rules (with boundary values), API validation, workflow, catalog drift
+cd backend && python -m pytest
 
-### Discount limits
+# frontend: draft → request mapping, issue → field mapping, quote sheet rendering
+cd frontend && npm test
 
-The maximum discount depends on seats:
+# frontend static checks
+cd frontend && npm run lint && npm run typecheck
+```
 
-| Tier | Seats | Maximum discount |
-| --- | ---: | ---: |
-| STARTER | 1–9 | 10% |
-| GROWTH | 10–49 | 20% |
-| ENTERPRISE | 50+ | 30% |
+## What's in the app
 
-### Approval
+| Page | Who | What it does |
+| --- | --- | --- |
+| `/` | everyone | **Overview.** What the tool is, how a quote moves, the pricing and approval rules (live from the API), a live-priced worked example, and current counts. |
+| `/quotes` | rep | Every saved quote. Filter by status; each row shows total, tier and approval at a glance. |
+| `/quotes/new` | rep | **Quote builder.** Customer, seats, product lines, discount and annual commitment. The quote sheet on the right is priced by the API as you type. It also offers **Compare another scenario** (A/B side by side), **Explain pricing**, and **draft recovery** (survives a refresh). |
+| `/quotes/:id` | rep | **Quote page.** Who, how much, approval verdict and reasons, line items, catalog-change warnings and history. A rep can **submit** a draft; a submitted quote shows as "with an approver". |
+| `/admin` | approver | **Approvals.** Passcode sign-in, then the queue of submitted quotes (oldest first, reasons up front) and recently decided ones. |
+| `/admin/quotes/:id` | approver | **Decision page.** The same review layout with **Approve** / **Reject** and an optional note. Changes show at once and roll back if the API refuses. |
 
-A quote requires approval when:
-- discount is above 15%, OR
-- total is greater than $25,000, OR
-- annual commitment is selected AND discount is above 10%
+---
 
-The API is the source of truth for these calculations. Do not trust totals calculated only in the browser.
+## API
 
-## MUST BUILD
+Base URL `http://localhost:8000`. All bodies are JSON. Money and percentages are JSON numbers, already rounded by the server (see DECISIONS.md, §3).
 
-### 1. Quote builder
+### Errors
 
-Create a page where a rep can:
-
-- enter customer name
-- enter seat count
-- add/remove product lines
-- select a product
-- enter quantity
-- enter discount
-- toggle annual commitment
-
-Show a live quote preview containing:
-- selected products
-- subtotal
-- discount amount
-- final total
-- applicable pricing tier
-- whether approval is required
-- reason(s) for approval
-
-Handle:
-- no line items
-- zero/negative quantities
-- invalid seat counts
-- discount above the allowed tier maximum
-- unknown product SKUs
-
-Make validation errors understandable.
-
-### 2. Backend
-
-Implement:
-
-`GET /api/catalog`
-
-Returns products and pricing rules.
-
-`POST /api/quotes/calculate`
-
-Accepts a quote draft and returns the authoritative calculation.
-
-Example response shape:
+Every non-2xx response has the same shape, so the UI can attach each problem to the right input:
 
 ```json
 {
-  "tier": "GROWTH",
-  "subtotal": 12000,
-  "discount_amount": 1800,
-  "total": 10200,
-  "approval_required": true,
-  "approval_reasons": ["discount_above_15_percent"]
+  "error": {
+    "code": "validation_failed",
+    "message": "The quote has 2 problems to fix.",
+    "issues": [
+      { "loc": ["line_items", 0, "quantity"], "code": "quantity_not_positive", "message": "Quantity must be at least 1." },
+      { "loc": ["discount_pct"], "code": "discount_above_tier_max", "message": "Starter tier (1–9 seats) allows at most 10% discount." }
+    ]
+  }
 }
 ```
 
-`POST /api/quotes`
+| Status | `error.code` | When |
+| --- | --- | --- |
+| 422 | `validation_failed` | Wrong types, unknown fields, or business-rule violations. All issues are reported at once. |
+| 401 | `invalid_admin_passcode` | An `Authorization` header was sent with a wrong passcode |
+| 403 | `approver_required` | A rep (no credentials) tried to approve or reject |
+| 404 | `quote_not_found` | Unknown quote id |
+| 409 | `invalid_transition` | Status change not allowed from the current status |
 
-Validates and saves a quote.
+Issue codes: `customer_name_required`, `customer_name_too_long`, `seats_required`, `seats_not_positive`, `seats_out_of_range`, `no_line_items`, `sku_required`, `unknown_sku`, `duplicate_sku`, `quantity_required`, `quantity_not_positive`, `quantity_too_large`, `discount_negative`, `discount_too_precise`, `discount_above_tier_max`, `invalid_type`, `unknown_field`.
 
-`GET /api/quotes/{id}`
+### `GET /api/catalog`
 
-Returns a saved quote with its calculated result.
+Products, seat tiers, and the approval thresholds.
 
-`GET /api/quotes`
+```json
+{
+  "currency": "USD",
+  "products": [{ "sku": "AGENT-CORE", "name": "Agent Core", "unit_price": 120.0 }],
+  "discount_rules": [{ "code": "STARTER", "min_seats": 1, "max_seats": 9, "max_discount_pct": 10.0 }],
+  "approval_rules": { "discount_above_pct": 15.0, "total_above": 25000.0, "annual_commitment_discount_above_pct": 10.0 }
+}
+```
 
-Returns saved quotes with enough information to choose one to open.
+### `POST /api/quotes/calculate`
 
-You decide the exact request/response schemas. Document them.
+Prices a draft and returns the authoritative result. The customer name is **not** required here, so a preview works before it's filled in.
 
-### 3. Quote review
+Request (`QuoteDraft`, also used by `POST /api/quotes`):
 
-Create a review page for a saved quote.
+```json
+{
+  "customer_name": "Northwind",
+  "seats": 50,
+  "line_items": [{ "sku": "AGENT-CORE", "quantity": 100 }, { "sku": "AGENT-ANALYTICS", "quantity": 100 }],
+  "discount_pct": 20,
+  "annual_commitment": false
+}
+```
 
-A reviewer should be able to understand in a few seconds:
-- who the quote is for
-- what was purchased
-- pricing
-- discount
-- approval status
-- why approval is required, if applicable
+`discount_pct` defaults to `0` and `annual_commitment` to `false` if omitted. Unknown fields are rejected.
 
-Add an action to change the quote status between:
+Response `200` (`Calculation`):
 
-`draft → submitted → approved`
+```json
+{
+  "seats": 50,
+  "tier": "ENTERPRISE",
+  "max_discount_pct": 30.0,
+  "lines": [
+    { "sku": "AGENT-CORE", "name": "Agent Core", "unit_price": 120.0, "quantity": 100, "line_total": 12000.0 },
+    { "sku": "AGENT-ANALYTICS", "name": "Agent Analytics", "unit_price": 80.0, "quantity": 100, "line_total": 8000.0 }
+  ],
+  "subtotal": 20000.0,
+  "discount_pct": 20.0,
+  "discount_amount": 4000.0,
+  "total": 16000.0,
+  "annual_commitment": false,
+  "approval_required": true,
+  "approval_reasons": ["discount_above_15_percent"],
+  "explanation": [
+    "50 seats → Enterprise tier → maximum discount 30%.",
+    "Subtotal $20,000 → 20% discount ($4,000) → final $16,000.",
+    "Approval required because discount is above 15%."
+  ]
+}
+```
 
-and
+`approval_reasons` ⊆ `discount_above_15_percent`, `total_above_25000`, `annual_commitment_discount_above_10_percent`.
 
-`draft → submitted → rejected`
+### `POST /api/quotes` → `201 Quote`
 
-Do not allow obviously invalid transitions. Document your choice.
+Same body as `/calculate`; `customer_name` is required. The quote is saved as `draft` together with a snapshot of its calculation.
 
-### 4. Tests
+```json
+{
+  "id": "Q-0001",
+  "status": "draft",
+  "customer_name": "Northwind",
+  "created_at": "2026-10-07T13:15:05Z",
+  "updated_at": "2026-10-07T13:15:05Z",
+  "calculation": { "...": "Calculation, as above" },
+  "history": [{ "from_status": null, "to_status": "draft", "at": "2026-10-07T13:15:05Z", "note": null, "actor": "rep" }],
+  "allowed_transitions": [{ "status": "submitted", "role": "rep" }],
+  "warnings": []
+}
+```
 
-Write meaningful tests.
+`warnings` lists products whose catalog entry has changed or disappeared since the quote was saved (`product_removed`, `price_changed`).
 
-At minimum:
-- 4 backend tests for business rules
-- 1 API validation/error test
-- 1 frontend test, OR explain in `DECISIONS.md` what you would test and why
+### `GET /api/quotes?status=` → `QuoteSummary[]`
 
-At least one test should cover a boundary value such as 9 vs 10 seats or 49 vs 50 seats.
+Newest first: `id, status, customer_name, created_at, updated_at, seats, tier, product_count, discount_pct, total, approval_required, approval_reasons`. The optional `status` filter (e.g. `?status=submitted`) returns the approval queue.
 
-## SHOULD BUILD
+### `GET /api/quotes/{id}` → `Quote`
 
-If the core is solid:
+### `PATCH /api/quotes/{id}/status` → `Quote`
 
-### A. Quote comparison
+```json
+{ "status": "submitted", "note": "optional, ≤ 500 chars" }
+```
 
-Allow the rep to create a second scenario from the same customer and compare:
+| Move | Who | How |
+| --- | --- | --- |
+| `draft → submitted` | rep (or approver) | no credentials needed |
+| `submitted → approved` | approver | header `Authorization: Bearer <passcode>` |
+| `submitted → rejected` | approver | header `Authorization: Bearer <passcode>` |
 
-- total
-- discount
-- products
-- approval requirement
+Any other move returns `409 invalid_transition`. A rep trying an approver move gets `403 approver_required`. Each history event records the `actor` (`rep` or `admin`).
 
-Example:
-"50 seats at 10%" vs "50 seats at 20%"
+### `POST /api/admin/session` → `204`
 
-### B. Explain the calculation
+```json
+{ "passcode": "approver" }
+```
 
-Add an "Explain pricing" action that shows a deterministic, human-readable explanation such as:
+Checks an approver passcode (`401 invalid_admin_passcode` if wrong). The UI holds it in memory only while you are inside `/admin` and sends it as the Bearer token on decisions. Leaving Approvals, refreshing or opening a new tab asks for it again.
 
-> 50 seats → Enterprise tier → maximum discount 30%.  
-> Subtotal $20,000 → 20% discount ($4,000) → final $16,000.  
-> Approval required because discount is above 15%.
+---
 
-This explanation may be generated entirely by your code. No external LLM/API is required.
+## Project layout
 
-### C. Draft recovery
+```
+backend/
+  app/
+    pricing.py    ← all business rules (pure functions, Decimal money)
+    catalog.py    ← loads data/catalog.json
+    models.py     ← HTTP request/response schemas
+    workflow.py   ← status state machine + which role may make each move
+    store.py      ← JSON-file persistence (atomic writes)
+    main.py       ← FastAPI routes + error envelope
+  tests/
+frontend/src/
+  app/            ← routes (/, /quotes, /quotes/new, /quotes/[id], /admin, /admin/quotes/[id])
+  components/     ← home/, builder/, review/, admin/, list, shared UI
+  lib/            ← api client, wire types, draft model, hooks, formatting
+data/catalog.json ← supplied, unmodified
+```
 
-Persist an unsaved draft locally so a browser refresh does not erase the form.
+## Known limitations
 
-## STRETCH
-
-Optional only:
-- Add an approval history/audit trail.
-- Add optimistic status updates with rollback.
-- Add Docker Compose for frontend and backend.
-- Replace JSON persistence with PostgreSQL and explain the migration.
-
-## Things you have to decide
-
-Put these decisions in `DECISIONS.md`.
-
-1. What happens if the same product is added twice?
-2. Is a 0% discount represented as `0` or omitted?
-3. How do you handle money/rounding? Explain why.
-4. Does an annual commitment change pricing, or only approval logic?
-5. What happens if a product disappears from the catalog after a saved quote was created?
-6. Where should business rules live so the frontend and backend cannot disagree?
-7. Which status transitions are allowed?
-
-There is no single correct answer. We score the quality of the reasoning and whether the implementation is consistent with it.
-
-## AI tools
-
-Use them.
-
-ChatGPT, Claude, Cursor, Copilot, etc. are allowed.
-
-You own every line you submit. During the follow-up interview we may ask you to:
-- explain the calculation path
-- change a business rule
-- identify a rounding bug
-- explain a TypeScript type
-- modify an API response
-- debug a failed request
-
-Do not submit code you cannot explain.
-
-## Submission
-
-Push the project to a public GitHub repository.
-
-Repository must contain:
-
-- `README.md` — setup/run/test instructions
-- `DECISIONS.md` — decisions above, what you noticed, what you would do with another day
-- `.env.example` — all environment variables used
-- meaningful commit history
-
-A reviewer should be able to clone the repository and see the working application within 10 minutes.
-
-## What we care about
-
-We are not scoring visual polish.
-
-We care about:
-- TypeScript quality
-- Python quality
-- correctness of business logic
-- API design
-- frontend/backend integration
-- validation and error handling
-- tests
-- product usability
-- engineering judgment
-
-A smaller, reliable implementation beats a large, fragile one.
+- **JSON-file storage**: one process only (a thread lock serialises writes). Not safe for several API workers. Ids are sequential (`Q-0001`).
+- **Approver access is a shared passcode**, not real user accounts. The API enforces it on every decision, but there are no individual identities (history records the *role*, not a person).
+- Saved quotes can't be edited. To revise one, use "Start a new quote from this one" (see DECISIONS.md, §7).
