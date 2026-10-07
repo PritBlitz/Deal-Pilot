@@ -16,9 +16,18 @@
 
 .brand {
   display: flex;
-  align-items: baseline;
-  gap: 14px;
+  align-items: center;
+  gap: 12px;
   text-decoration: none;
+}
+
+.mark {
+  flex: none;
+  transition: transform 220ms var(--ease);
+}
+
+.brand:hover .mark {
+  transform: rotate(-6deg);
 }
 
 .wordmark {
@@ -87,7 +96,8 @@
     font-size: 13px;
   }
 
-  .cta {
+  /* .nav prefix beats the global .btn display rule */
+  .nav .cta {
     display: none;
   }
 

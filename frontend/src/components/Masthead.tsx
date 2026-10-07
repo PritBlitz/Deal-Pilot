@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { LogoMark } from "@/components/Logo";
 import { useApproverPasscode } from "@/lib/admin";
 
 import styles from "./Masthead.module.css";
@@ -21,6 +22,7 @@ export function Masthead() {
     <header className={styles.masthead}>
       <div className={styles.inner}>
         <Link href="/" className={styles.brand} aria-label="Deal Desk: overview">
+          <LogoMark size={30} className={styles.mark} />
           <span className={`display ${styles.wordmark}`}>
             Deal <em>Desk</em>
           </span>
